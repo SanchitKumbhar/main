@@ -1,27 +1,49 @@
 #include <iostream>
-#include <vector>
 #include <fstream>
-#include <stdexcept>
+#include <vector>
 using namespace std;
 
-// Struct for storing employee data
 struct Employee {
     int id;
     string name;
     string department;
 };
 
-// Struct for index table entries (for searching employee positions)
 struct IndexEntry {
-    int id;
-    int position;
+    int id;      // starting id
+    int position; // line number or position in file
 };
 
-// Function to search for an employee by ID
-Employee searchEmployee(int searchId, const vector<IndexEntry>& indexTable) {
-    int startPos = -1;  // Start position for search, -1 means not found
+// Global index
+vector<IndexEntry> indexTable;
 
-    // Find the start position from the index table
+// Function to build index
+void buildIndex() {
+    ifstream file("employees.txt");
+    Employee emp;
+    int pos = 0;
+
+    while (file >> emp.id >> emp.name >> emp.department) {
+        // Add every 3rd record to index (example)
+        if (pos % 3 == 0) {
+            IndexEntry entry;
+            entry.id = emp.id;
+            entry.position = pos;
+            indexTable.push_back(entry);
+        }
+        pos++;
+    }
+    file.close();
+}
+
+// Function to search using index
+void searchEmployeeById(int searchId) {
+    ifstream file("employees.txt");
+    Employee emp;
+    int pos = 0;
+    int startPos = 0;
+
+    // Find the nearest lower ID from index
     for (const auto& entry : indexTable) {
         if (searchId >= entry.id) {
             startPos = entry.position;
@@ -30,35 +52,88 @@ Employee searchEmployee(int searchId, const vector<IndexEntry>& indexTable) {
         }
     }
 
-    // If a start position is found, search from there
-    if (startPos != -1) {
-        ifstream file("employees.txt");
-        file.seekg(startPos);  // Jump to start position
+    // Now move to startPos
+    file.clear();
+    file.seekg(0); // Go to beginning
+    int skipLines = startPos;
+    while (skipLines--) {
+        file >> emp.id >> emp.name >> emp.department;
+    }
 
-        Employee emp;
-        while (file >> emp.id >> emp.name >> emp.department) {
-            if (emp.id == searchId) {
-                return emp;  // Found the employee, return it
-            }
+    // Now sequential search from here
+    bool found = false;
+    while (file >> emp.id >> emp.name >> emp.department) {
+        if (emp.id == searchId) {
+            cout << "Employee Found!\n";
+            cout << "ID: " << emp.id
+                 << ", Name: " << emp.name
+                 << ", Department: " << emp.department << endl;
+            found = true;
+            break;
+        }
+        // Stop if ids are bigger
+        if (emp.id > searchId) {
+            break;
         }
     }
 
-    // If not found, throw an error
-    throw runtime_error("Employee not found.");
+    if (!found) {
+        cout << "Employee with ID " << searchId << " not found.\n";
+    }
+
+    file.close();
+}
+
+// Function to add new employee
+void addEmployee() {
+    ofstream file("employees.txt", ios::app);
+    Employee emp;
+
+    cout << "Enter Employee ID: ";
+    cin >> emp.id;
+    cout << "Enter Name: ";
+    cin.ignore();
+    getline(cin, emp.name);
+    cout << "Enter Department: ";
+    getline(cin, emp.department);
+
+    file << emp.id << " " << emp.name << " " << emp.department << endl;
+    file.close();
 }
 
 int main() {
-    // Example index table: {ID, position in file}
-    vector<IndexEntry> indexTable = {{100, 0}, {200, 10}, {300, 20}};
+    int choice;
+    do {
+        cout << "\nIndexed Sequential File System - Employee Management\n";
+        cout << "1. Add Employee\n";
+        cout << "2. Build Index\n";
+        cout << "3. Search Employee by ID\n";
+        cout << "0. Exit\n";
+        cout << "Enter choice: ";
+        cin >> choice;
 
-    try {
-        // Searching for employee with ID 200
-        Employee result = searchEmployee(200, indexTable);
-        cout << "Employee Found: " << result.id << ", " << result.name << ", " << result.department << endl;
-    } catch (const exception& e) {
-        cout << e.what() << endl;  // If not found, show error
-    }
+        switch (choice) {
+            case 1:
+                addEmployee();
+                break;
+            case 2:
+                buildIndex();
+                cout << "Index built successfully!\n";
+                break;
+            case 3: {
+                int id;
+                cout << "Enter Employee ID to search: ";
+                cin >> id;
+                searchEmployeeById(id);
+                break;
+            }
+            case 0:
+                cout << "Exiting.\n";
+                break;
+            default:
+                cout << "Invalid choice.\n";
+        }
+    } while (choice != 0);
 
     return 0;
 }
-
